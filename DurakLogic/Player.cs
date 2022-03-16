@@ -11,6 +11,7 @@ namespace DurakLogic
         {
             Name = name;
             Hand = hand;
+            IsInGame = true;
         }
 
         public Player(string name):this(name, new CardSet())
@@ -19,5 +20,6 @@ namespace DurakLogic
 
         public string Name { get; set; }
         public CardSet Hand { get; set; }
+        public bool IsInGame { get; set; }
     }
 }

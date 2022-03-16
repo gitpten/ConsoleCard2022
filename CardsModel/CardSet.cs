@@ -45,10 +45,16 @@ namespace CardsModel
             Cards.RemoveAt(number);
         }
 
+        public virtual void RemoveCard(Card card)
+        {
+            Cards.Remove(card);
+        }
+
+
         public Card Pull(Card card)
         {
             Card foundCard = Cards.FirstOrDefault(c => c.Equals(card));
-            if (foundCard != null) Cards.Remove(foundCard);
+            if (foundCard != null) RemoveCard(foundCard);
             return foundCard;
         }
 
@@ -59,7 +65,7 @@ namespace CardsModel
 
             if (amount > Count) amount = Count;
 
-            CardSet cardSet = new CardSet();
+            CardSet cardSet = GetBlankCardSet();
             for (int i = 0; i < amount; i++)
             {
                 cardSet.Add(Pull());
@@ -67,7 +73,12 @@ namespace CardsModel
             return cardSet;
         }
 
-        public void Add(params Card[] cards)
+        public virtual CardSet GetBlankCardSet()
+        {
+            return new CardSet();
+        }
+
+        public virtual void Add(params Card[] cards)
         {
             Cards.AddRange(cards);
         }
@@ -88,7 +99,7 @@ namespace CardsModel
             {
                 foreach (CardSuite suite in Enum.GetValues(typeof(CardSuite)))
                 {
-                    Cards.Add(GetCard(suite, figure));
+                    Add(GetCard(suite, figure));
                 }
             }
         }
@@ -123,10 +134,18 @@ namespace CardsModel
 
         public void CutTo(int amount)
         {
-            Cards.RemoveRange(0, Count - amount);
+            while (Count > amount)
+            {
+                RemoveCard(0);
+            }
         }
 
         public IEnumerator<Card> GetEnumerator() => Cards.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => Cards.GetEnumerator();
+
+        public void Clear()
+        {
+            CutTo(0);
+        }
     }
 }

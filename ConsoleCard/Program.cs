@@ -7,6 +7,7 @@ namespace ConsoleCard
 {
     class Program
     {
+        static DurakGame game;
         static void Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -16,34 +17,37 @@ namespace ConsoleCard
                 new Player("Petia"),
                 new Player("Oleg")
             };
-            DurakGame game = new DurakGame(players, ShowCards, ShowMessage, ChooseCard);
-            while(true)
-            {
-                game.NextMove();
+            game = new DurakGame(players, ShowState);
+            game.Prepare();
+            game.Deal();
+            while(!game.IsGameOver)
+            {           
+                WaitAction();
             }
         }
 
-        private static Card ChooseCard(Player player)
+        private static void WaitAction()
         {
-            CardSet hand = player.Hand;
-            Console.WriteLine($"Cards of {player.Name}:");
-            for (int i = 0; i < hand.Count; i++)
-            {
-                Console.Write($"{i + 1, -4}");
-            }
-            Console.WriteLine();
-            WriteCards(hand);
-            Console.Write("Enter number of card or '-' to pass: ");
+            CardSet hand = game.ActivePlayer.Hand;
+            Console.Write("Enter letter to action or number of card to move: ");
             int number;
             string answ = Console.ReadLine();
             while (!int.TryParse(answ, out number) || number - 1 < 0 || number - 1 >= hand.Count)
             {
-                if (answ == "-")
-                    return null;
-                Console.Write("Not correct! Enter number or '-': ");
+                if (answ.ToLower() == "t")
+                {
+                    game.GiveUp();
+                    return;
+                }
+                if (answ.ToLower() == "p")
+                {
+                    game.Pass();
+                    return;
+                }
+                Console.Write("Not correct! Enter number or letter: ");
                 answ = Console.ReadLine();
-            } 
-            return hand[number - 1];           
+            }
+            game.Turn(hand[number - 1]);
         }
 
         private static void ShowMessage(string message)
@@ -51,11 +55,33 @@ namespace ConsoleCard
             Console.WriteLine(message);
         }
 
-        private static void ShowCards(CardSet cards)
+        private static void ShowState()
         {
-            Console.WriteLine("------------");
-            WriteCards(cards);
-            Console.WriteLine("------------");
+            Console.Clear();
+            Console.WriteLine(game.ResultInfo);
+            Console.WriteLine(game.StateInfo);
+            Console.WriteLine($"Trump: {CardSymbol(game.Trump)}");
+
+            if (game.Table.Count > 0)
+            {
+                Console.WriteLine("------------");
+                WriteCards(game.Table);
+                Console.WriteLine("------------");
+            }
+
+            foreach (var command in game.GetPossibleActions())
+            {
+                Console.WriteLine($"{command[0]} — {command}");
+            }
+
+            CardSet hand = game.ActivePlayer.Hand;
+            Console.WriteLine($"Cards of {game.ActivePlayer.Name}:");
+            for (int i = 0; i < hand.Count; i++)
+            {
+                Console.Write($"{i + 1,-4}");
+            }
+            Console.WriteLine();
+            WriteCards(hand);
         }
 
         private static void WriteCards(CardSet cards)

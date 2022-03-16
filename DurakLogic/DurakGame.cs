@@ -7,64 +7,98 @@ namespace DurakLogic
 {
     public class DurakGame
     {
+        enum Mode{
+            Attack,
+            Defending,
+            PickingUp
+        }
+
+        private const string GIVEUPSTR = "Take cards";
+        private const string PASSSTR = "Pass the move";
+
         private readonly static Random random = new Random();
         public List<Player> Players { get; set; }
         public CardSet Deck { get; set; }
         public CardSet Table { get; set; }
-        public Card Trump { get; set; }
+        public Card Trump { get; private set; }
+        public Player ActivePlayer { get; private set; }
+        public string ResultInfo { get; private set; }
+        public string StateInfo {
+            get 
+            {
+                if (IsGameOver)
+                    return "";
+                else if (mode == Mode.PickingUp)
+                    return $"{ActivePlayer.Name} is choose card {defender.Name} is piching up. He can put {countCardToTurn} card";
+                else if (mode == Mode.Attack)
+                    return $"{ActivePlayer.Name} is moving to {defender.Name}";
+                else if (mode == Mode.Defending)
+                    return $"{ActivePlayer.Name} is defending";
+                return "";
+            }
+        }
 
-        private Action<CardSet> showCards;
-        private Action<string> message;
-        private Func<Player, Card> chooseCard;
+        private Mode mode;
         private Player mover;
         private Player defender;
         private Player attacker;
-        public Player activePlayer;
-        public bool IsGameOver { get; set; } = false;
+        private Player firstPasser; 
 
-        public Player ActivePlayer
+        private Action ShowState;
+
+
+        public bool IsGameOver { get; set; } = false;
+        private int countCardToTurn;
+
+        public List<string> GetPossibleActions()
         {
-            get => activePlayer;
-            set
-            {
-                activePlayer = value;
-                //message($"{activePlayer.Name}s Cards:");
-                //activePlayer.Hand.Sort();
-                //showCards(activePlayer.Hand);
-            }
+            List<string> actions = new List<string>();
+            if (mode == Mode.Defending)
+                actions.Add(GIVEUPSTR);
+
+            if (mode != Mode.Defending && Table.Count > 0)
+                actions.Add(PASSSTR);
+
+            return actions;
         }
 
         public DurakGame(List<Player> players,
-            Action<CardSet> showCards, Action<string> message, Func<Player, Card> chooseCard)
+            Action showState)
         {
             Players = players;
-            this.showCards = showCards;
-            this.message = message;
-            this.chooseCard = chooseCard;
-            Deck = new CardSet();
-            Deck.Full();
-            Deck.CutTo(36);
+            ShowState = showState;
             Table = new CardSet();
-            StartGame();            
+            Deck = new CardSet();
         }
 
-
-        private void StartGame()
+        public void Prepare()
         {
-            Deck.Shuffle();
+            foreach (var player in Players)
+            {
+                player.IsInGame = true;
+            }
+            Deck.Full();
+            Deck.CutTo(36);
 
+            Deck.Shuffle();
+        }
+
+        public void Deal()
+        {
             Trump = Deck.LastCard;
             foreach (var player in Players)
             {
-                player.Hand = Deck.Deal(6);
+                player.Hand.Add(Deck.Deal(6));
                 player.Hand.Sort();
             }
-            message("All right. Trump:");
-            showCards(new CardSet(Trump));
+            ResultInfo = "All right!";
+            mode = Mode.Attack;
             attacker = WhoFirst();
             defender = NextPlayer(attacker);
             mover = attacker;
             ActivePlayer = mover;
+            countCardToTurn = Math.Min(defender.Hand.Count, 6);
+            ShowState();
         }
 
         private Player WhoFirst()
@@ -85,142 +119,212 @@ namespace DurakLogic
             return active;
         }
 
-        public void Move(Card movingCard)
+        public void Turn(Card movingCard)
         {
-            if (IsGameOver) return;
-
-            if (!activePlayer.Hand.Cards.Contains(movingCard)) return;
-
-            if (ActivePlayer == mover && Table.Count > 0 && Table.Cards.FirstOrDefault(c => c.Figure == movingCard.Figure) == null) return;
-
-            if (ActivePlayer == defender && !IsBeat(movingCard, Table.LastCard)) return;
+            if (ImpossibleMove(movingCard)) return;
 
             Table.Add(ActivePlayer.Hand.Pull(movingCard));
-            ActivePlayer = ActivePlayer == mover ? defender : mover;
+            ResultInfo = "";
+
+            SwitchMode();
+
+            ShowState();
         }
 
-        public void DefenderTake()
+        private bool ImpossibleMove(Card movingCard)
         {
-            if (IsGameOver) return;
-
-            message($"Player{defender.Name} is taking");
-            PutForTaking(defender.Hand.Count);
-            defender.Hand.Add(Table.Deal(Table.Count));            
-            CardDraw();
-            attacker = NextPlayer(defender);
-            defender = NextPlayer(attacker);
-            mover = attacker;
-            ActivePlayer = mover;            
+            return IsGameOver ||
+            (mode != Mode.Defending && ActivePlayer == defender) ||
+            (!ActivePlayer.Hand.Cards.Contains(movingCard)) ||
+            (mode != Mode.Defending && Table.Count > 0 && Table.Cards.FirstOrDefault(c => c.Figure == movingCard.Figure) == null) ||
+            (mode == Mode.Defending && !IsBeat(movingCard, Table.LastCard));
         }
 
-        private void PutForTaking(int count)
+        private void SwitchMode()
         {
-            Player player = mover;
-            while(count > 0)
+            switch (mode)
             {
-                Card cardForAdding = chooseCard(player);
-                if (cardForAdding == null)
-                {
-                    player = NextPlayer(player);
-                    if (player == defender) player = NextPlayer(player);
-                    if (player == mover) return;
-                }
-                else
-                {
-                    defender.Hand.Add(player.Hand.Pull(cardForAdding));
-                    count--;
-                }
+                case Mode.Attack:
+                    SwitchAfterAttack();
+                    break;
+                case Mode.Defending:
+                    SwitchAfterDefending();
+                    break;
+                case Mode.PickingUp:
+                    SwitchAfterPickedUp();
+                    break;
+                default:
+                    throw new Exception("We don't now this mode");
             }
         }
 
-        public void NextMover()
+        private void SwitchAfterDefending()
         {
-            if (IsGameOver) return;
-            if (ActivePlayer == defender) return;            
-            Player nextMover = NextPlayer(mover);
-            if (nextMover == defender) nextMover = NextPlayer(nextMover);
-            if (nextMover == attacker) 
+            if (defender.Hand.Count == 0 || countCardToTurn == 0)
                 Beat();
             else
             {
-                mover = nextMover;
-                message($"Player{mover} is moving");
-                ActivePlayer = mover;
+                firstPasser = null;
+                TurnAttackMode();                
             }
+            ShowState();
         }
-        public void Beat()
+
+        private void SwitchAfterAttack()
         {
-            if (IsGameOver) return;
-            Table.Cards.Clear();
-            message($"There is beat");
-            CardDraw();
-            attacker = defender;
-            defender = NextPlayer(attacker);
-            mover = attacker;
+            countCardToTurn--;
+            TurnDefendingMode();
+            ShowState();
+        }
+
+        private void SwitchAfterPickedUp()
+        {
+            countCardToTurn--;
+            if (countCardToTurn == 0) PickUp();
+            else if (mover.Hand.Count == 0)
+            {
+                NextMover();
+                ActivateMover();
+            }
+            ShowState();
+        }
+
+        private void TurnAttackMode()
+        {
+            ActivateMover(); 
+            mode = Mode.Attack;
+        }
+
+        private void TurnDefendingMode()
+        {
+            mode = Mode.Defending;
+            ActivePlayer = defender;
+        }
+        public void GiveUp()
+        {
+            mode = Mode.PickingUp;
+            if (countCardToTurn == 0)
+                PickUp();
+            ActivateMover();
+            ShowState();
+        }
+        private void ActivateMover()
+        {
+            if (mover.Hand.Count == 0) NextMover();
             ActivePlayer = mover;
         }
 
-        public void NextMove()
+
+        private void PickUp()
         {
-            if (IsGameOver) return;
-            showCards(Table);
-            Card movingCard = chooseCard(ActivePlayer);
-            while(movingCard == null && Table.Count == 0)
-            {
-                message("You must select card");
-                movingCard = chooseCard(ActivePlayer);
-            }
-            if (movingCard == null)
-                DefaultAction(ActivePlayer);
-            Move(movingCard);
+            defender.Hand.Add(Table.Deal(Table.Count));
+            ResultInfo = $"{defender.Name} has taken cards.";
+            NewTurn();
         }
 
-        private void DefaultAction(Player player)
+        private void Beat()
         {
-            if (player == defender)
-                DefenderTake();
-            else if (player == mover)
-                NextMover();
+            Table.Clear();
+            ResultInfo = $"There is beat";
+            NewTurn();
+        }
+
+        private void NewTurn()
+        {
+            CardDraw();
+            CheckWinner();
+            if (IsGameOver) return;
+            if (mode == Mode.PickingUp)
+                attacker = NextPlayer(defender);
+            else
+                attacker = defender.IsInGame ? defender : NextPlayer(defender);
+            defender = NextPlayer(attacker);
+            mover = attacker;
+            firstPasser = null;
+            countCardToTurn = Math.Min(defender.Hand.Count, 6);
+            TurnAttackMode();
+        }
+
+
+        public void Pass()
+        {
+            if (firstPasser == null)
+                firstPasser = ActivePlayer;
+            NextMover();
+            ActivateMover();
+            ShowState();
+        }
+        private void CheckWinner()
+        {
+            int countInGame = Players.Count(p => p.IsInGame);
+            if (countInGame == 1)
+            {
+                IsGameOver = true;
+                ResultInfo = $"{Players[0].Name} loose! Game over!";
+            }
+
+            if (countInGame == 0)
+            {
+                IsGameOver = true;
+                ResultInfo = $"There is draw";
+            }
+            ShowState();
         }
 
         private void CardDraw()
         {
             CardDraw(attacker);
-            foreach (var player in Players)
+            var player = NextPlayer(attacker, p => p == defender);
+            while (player != null && player != attacker)
             {
-                if (player != attacker && player != defender)
-                    CardDraw(player);
+                CardDraw(player);
+                player = NextPlayer(player, p => p == defender);
             }
             CardDraw(defender);
-            if(Players.Count == 1)
+            foreach (var p in Players)
             {
-                IsGameOver = true;
-                message($"{Players[0].Name} loose! Game over!");
+                if (p.Hand.Count == 0)
+                {
+                    p.IsInGame = false;
+                }
             }
-        }
-
+        }   
         private void CardDraw(Player player)
         {
-            if(Deck.Count == 0 && player.Hand.Count == 0)
-            {
-                Players.Remove(player);
-                return;
-            }
             int count = player.Hand.Count;
             if (count < 6) player.Hand.Add(Deck.Deal(6 - count));
             player.Hand.Sort();
         }
-
         public Player NextPlayer(Player player)
         {
-            if (Players[Players.Count - 1] == player) return Players[0];
-            return Players[Players.IndexOf(player) + 1];
+            var applicant = Players[Players.Count - 1] == player ? Players[0] : Players[Players.IndexOf(player) + 1];
+            if (applicant.IsInGame) return applicant;
+            return NextPlayer(applicant);
         }
 
-        public Player PeviousPlayer(Player player)
+        public Player NextPlayer(Player player, Predicate<Player> except, Player stopPlayer = null)
         {
-            if (Players[0] == player) return Players[Players.Count - 1];
-            return Players[Players.IndexOf(player) - 1];
+            Player applicant = NextPlayer(player);
+            if (stopPlayer == applicant) return null;
+            if (except(applicant)) return NextPlayer(applicant, except, player);
+            return applicant;
+        }
+        private void NextMover()
+        {
+            Player applicant = NextPlayer(mover, p => p == defender || p.Hand.Count == 0);
+            if(applicant == null || applicant == firstPasser)
+            {
+                if (mode == Mode.PickingUp)
+                    PickUp();
+                else
+                    Beat();
+                return;
+            }
+            mover = applicant;
+        }
+        public Player PreviousPlayer(Player player)
+        {
+            return Players[0] == player ? Players[Players.Count - 1] : Players[Players.IndexOf(player) - 1];
         }
         public bool IsBeat(Card attacking, Card defending)
         {
