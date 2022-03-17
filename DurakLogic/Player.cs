@@ -19,5 +19,6 @@ namespace DurakLogic
 
         public string Name { get; set; }
         public CardSet Hand { get; set; }
+        public bool IsInGame { get; set; } = true;
     }
 }

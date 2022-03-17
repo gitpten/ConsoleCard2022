@@ -6,7 +6,7 @@ using System.Text;
 
 namespace CardsModel
 {
-    public class CardSet:IEnumerable<Card>
+    public class CardSet: IEnumerable<Card>
     {
         private readonly static Random random = new Random();
         public CardSet(List<Card> cards)
@@ -16,9 +16,9 @@ namespace CardsModel
 
         public CardSet() : this(new List<Card>()) { }
 
-        public CardSet(params Card[] cards):this(new List<Card>(cards)) { }
+        public CardSet(params Card[] cards) : this(new List<Card>(cards)) { }
 
-        public List<Card> Cards { get; set; }
+        protected List<Card> Cards { get; set; }
 
         public int Count { get => Cards.Count; }
 
@@ -36,7 +36,7 @@ namespace CardsModel
                 throw new Exception("The number of card was out of range");
 
             Card card = Cards[number];
-            Cards.RemoveAt(number);
+            RemoveCard(card);
             return card;
         }
 
@@ -54,7 +54,7 @@ namespace CardsModel
 
             if (amount > Count) amount = Count;
 
-            CardSet cardSet = new CardSet();
+            CardSet cardSet = GetBlankCardSet();
             for (int i = 0; i < amount; i++)
             {
                 cardSet.Add(Pull());
@@ -62,7 +62,12 @@ namespace CardsModel
             return cardSet;
         }
 
-        public void Add(params Card[] cards)
+        public virtual CardSet GetBlankCardSet()
+        {
+            return new CardSet();
+        }
+
+        public virtual void Add(params Card[] cards)
         {
             Cards.AddRange(cards);
         }
@@ -75,6 +80,17 @@ namespace CardsModel
         public void Add(CardSet cards)
         {
             Add(cards.Cards);
+        }
+
+        public virtual void RemoveCard(Card card)
+        {
+            Cards.Remove(card);
+        }
+
+        public void RemoveCard(int n)
+        {
+            if (n < 0 || n > Count) throw new Exception("Incorrect number");
+            RemoveCard(Cards[n]);
         }
 
         public void Full()
@@ -118,7 +134,13 @@ namespace CardsModel
 
         public void CutTo(int amount)
         {
-            Cards.RemoveRange(0, Count - amount);
+            while (Count > amount)
+                RemoveCard(0);
+        }
+
+        public void Clear()
+        {
+            CutTo(0);
         }
 
         public IEnumerator<Card> GetEnumerator() => Cards.GetEnumerator();
