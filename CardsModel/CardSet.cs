@@ -18,7 +18,7 @@ namespace CardsModel
 
         public CardSet(params Card[] cards):this(new List<Card>(cards)) { }
 
-        public List<Card> Cards { get; set; }
+        protected List<Card> Cards { get; set; }
 
         public int Count { get => Cards.Count; }
 

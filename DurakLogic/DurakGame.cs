@@ -135,8 +135,8 @@ namespace DurakLogic
         {
             return IsGameOver ||
             (mode != Mode.Defending && ActivePlayer == defender) ||
-            (!ActivePlayer.Hand.Cards.Contains(movingCard)) ||
-            (mode != Mode.Defending && Table.Count > 0 && Table.Cards.FirstOrDefault(c => c.Figure == movingCard.Figure) == null) ||
+            (!ActivePlayer.Hand.Contains(movingCard)) ||
+            (mode != Mode.Defending && Table.Count > 0 && Table.FirstOrDefault(c => c.Figure == movingCard.Figure) == null) ||
             (mode == Mode.Defending && !IsBeat(movingCard, Table.LastCard));
         }
 
@@ -260,7 +260,7 @@ namespace DurakLogic
             if (countInGame == 1)
             {
                 IsGameOver = true;
-                ResultInfo = $"{Players[0].Name} loose! Game over!";
+                ResultInfo = $"{Players.FirstOrDefault(p => p.IsInGame).Name} loose! Game over!";
             }
 
             if (countInGame == 0)

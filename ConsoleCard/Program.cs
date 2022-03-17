@@ -86,7 +86,7 @@ namespace ConsoleCard
 
         private static void WriteCards(CardSet cards)
         {
-            foreach (var item in cards.Cards)
+            foreach (var item in cards)
             {
                 Console.Write($"{CardSymbol(item),-4}");
             }
