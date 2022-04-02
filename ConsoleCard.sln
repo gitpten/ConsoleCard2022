@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleCard", "ConsoleCard\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardsModel", "CardsModel\CardsModel.csproj", "{2D0329AB-C1D6-4BD8-AE86-2634720511A9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DurakLogic", "DurakLogic\DurakLogic.csproj", "{C44E4FDC-2435-4E67-A5CB-361DFE643868}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DurakLogic", "DurakLogic\DurakLogic.csproj", "{C44E4FDC-2435-4E67-A5CB-361DFE643868}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
